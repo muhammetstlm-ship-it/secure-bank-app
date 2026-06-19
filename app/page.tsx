@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, BankTransaction } from "./constants/bankData";
 
 // Siber Güvenlik Alarm Modeli
@@ -18,7 +18,7 @@ export default function BankDashboard() {
   const [accounts, setAccounts] = useState(MOCK_ACCOUNTS);
   const [transactions, setTransactions] = useState<BankTransaction[]>(MOCK_TRANSACTIONS);
 
-  // 🛡️ Siber Güvenlik SOC Log Durumu (İlk başta boş veya varsayılan logla başlar)
+  // 🛡️ Siber Güvenlik SOC Log Durumu
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([
     {
       id: "SEC-4401",
@@ -40,6 +40,9 @@ export default function BankDashboard() {
   });
 
   const myAccount = accounts[0];
+
+  // 🎯 SOC MONITOR GÖRSEL ZIRH: En son loga odaklanacak çapa referansı
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   // ==========================================
   // 🛡️ ADLİ BİLİŞİM (FORENSICS) KALICILIK MOTORU
@@ -66,6 +69,15 @@ export default function BankDashboard() {
     localStorage.setItem("secure_bank_accounts", JSON.stringify(accounts));
     localStorage.setItem("secure_bank_transactions", JSON.stringify(transactions));
   }, [accounts, transactions]);
+
+  // ==========================================
+  // 🛡️ UI/UX CANLI LOG TAKİP MOTORU (AUTO-SCROLL)
+  // ==========================================
+
+  // AŞAMA 4: Her yeni siber log eklendiğinde listeyi otomatik olarak en aşağı kaydır
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [securityLogs]);
 
   // ==========================================
 
@@ -169,7 +181,7 @@ export default function BankDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
 
-      {/* KURUMSAL SİBER NAVBAR */}
+      {/* KURUMSUR SİBER NAVBAR */}
       <nav className="bg-slate-900 px-8 py-4 flex justify-between items-center shadow-lg border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="bg-emerald-500 p-2 rounded-lg text-slate-900 font-bold text-xl tracking-wider">SOC</div>
@@ -283,6 +295,9 @@ export default function BankDashboard() {
                   </div>
                 </div>
               ))}
+
+              {/* 🎯 GÖRÜNMEZ ÇAPA: Yeni log geldiğinde ekran otomatik olarak buraya kayacak */}
+              <div ref={logEndRef} />
             </div>
           </div>
         </div>
