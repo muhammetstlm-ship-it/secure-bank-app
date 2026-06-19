@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, BankTransaction } from "./constants/bankData";
 
 // Siber Güvenlik Alarm Modeli
@@ -18,7 +18,7 @@ export default function BankDashboard() {
   const [accounts, setAccounts] = useState(MOCK_ACCOUNTS);
   const [transactions, setTransactions] = useState<BankTransaction[]>(MOCK_TRANSACTIONS);
 
-  // 🛡️ YENİ: Siber Güvenlik SOC Log Durumu
+  // 🛡️ Siber Güvenlik SOC Log Durumu (İlk başta boş veya varsayılan logla başlar)
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>([
     {
       id: "SEC-4401",
@@ -41,6 +41,34 @@ export default function BankDashboard() {
 
   const myAccount = accounts[0];
 
+  // ==========================================
+  // 🛡️ ADLİ BİLİŞİM (FORENSICS) KALICILIK MOTORU
+  // ==========================================
+
+  // AŞAMA 1: Sayfa ilk yüklendiğinde tarayıcı hafızasındaki (localStorage) eski verileri çek
+  useEffect(() => {
+    const lokalLoglar = localStorage.getItem("secure_bank_logs");
+    const lokalHesaplar = localStorage.getItem("secure_bank_accounts");
+    const lokalIslemler = localStorage.getItem("secure_bank_transactions");
+
+    if (lokalLoglar) setSecurityLogs(JSON.parse(lokalLoglar));
+    if (lokalHesaplar) setAccounts(JSON.parse(lokalHesaplar));
+    if (lokalIslemler) setTransactions(JSON.parse(lokalIslemler));
+  }, []);
+
+  // AŞAMA 2: Siber loglar her güncellendiğinde hafızaya anında kilitle (Delil Karartma Koruması)
+  useEffect(() => {
+    localStorage.setItem("secure_bank_logs", JSON.stringify(securityLogs));
+  }, [securityLogs]);
+
+  // AŞAMA 3: Hesap bakiyeleri veya işlemler her değiştiğinde hafızayı güncelle
+  useEffect(() => {
+    localStorage.setItem("secure_bank_accounts", JSON.stringify(accounts));
+    localStorage.setItem("secure_bank_transactions", JSON.stringify(transactions));
+  }, [accounts, transactions]);
+
+  // ==========================================
+
   // 🚨 Siber Güvenlik Log Fırlatıcı (Helper Function)
   const triggerSecurityLog = (severity: "CRITICAL" | "WARNING", message: string, errorCode: string) => {
     const newLog: SecurityLog = {
@@ -56,21 +84,25 @@ export default function BankDashboard() {
   // 🛡️ TRANSFER MOTORU
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(transferAmount);
 
+    // 1. Alanların eksiksiz doldurulup doldurulmadığını denetle
     if (!receiverIban || !transferAmount || !transferDesc) {
       setSystemMessage({ text: "⚠️ Lütfen tüm alanları eksiksiz doldurun.", type: "error" });
       return;
     }
 
-    // 🔴 KRİTİK ATAK: Negatif veya Sıfır Değer Atağı Koruması
-    if (amount <= 0 || isNaN(amount)) {
+    // 2. GÜVENLİ TİP DÖNÜŞÜMÜ (TypeScript Sıkılaştırması)
+    const amount = Number(transferAmount);
+
+    // 🔴 KRİTİK ATAK KORUMASI: Negatif, Sıfır, Boş veya Sayı Olmayan (NaN) Giriş Engeli
+    if (!transferAmount || amount <= 0 || isNaN(amount)) {
       setSystemMessage({ text: "❌ Geçersiz miktar! Güvenlik protokolü uyarınca işlem reddedildi.", type: "error" });
-      
-      // Siber Güvenlik Alarmı Tetikle!
+
+      const sahteGirdi = transferAmount.trim() !== "" ? `${transferAmount} ₺` : "BOŞ BIRAKILDI / GİRİŞ YOK";
+
       triggerSecurityLog(
-        "CRITICAL", 
-        `Manipülatif bakiye enjeksiyon denemesi! Girilen Değer: [${transferAmount} ₺]`, 
+        "CRITICAL",
+        `Manipülatif veya geçersiz bakiye denemesi! Girilen Değer: [${sahteGirdi}]`,
         "ERR_NEGATIVE_INJECTION"
       );
       return;
@@ -79,11 +111,10 @@ export default function BankDashboard() {
     // 🟠 UYARI: Yetersiz Bakiye Kontrolü
     if (amount > myAccount.balance) {
       setSystemMessage({ text: "❌ Hesap bakiyesi bu işlem için yetersiz.", type: "error" });
-      
-      // Siber Güvenlik Alarmı Tetikle!
+
       triggerSecurityLog(
-        "WARNING", 
-        `Yetersiz bakiye limit aşım denemesi. Talep: ${amount} ₺`, 
+        "WARNING",
+        `Yetersiz bakiye limit aşım denemesi. Talep: ${amount} ₺`,
         "ERR_INSUFFICIENT_LIMIT"
       );
       return;
@@ -93,10 +124,10 @@ export default function BankDashboard() {
     const targetAccount = accounts.find(acc => acc.accountNumber === receiverIban);
     if (!targetAccount) {
       setSystemMessage({ text: "❌ Alıcı hesap (IBAN) bulunamadı. Lütfen kontrol edin.", type: "error" });
-      
+
       triggerSecurityLog(
-        "WARNING", 
-        `Bilinmeyen/Hayali IBAN'a para gönderim denemesi: [${receiverIban}]`, 
+        "WARNING",
+        `Bilinmeyen/Hayali IBAN'a para gönderim denemesi: [${receiverIban}]`,
         "ERR_UNKNOWN_TARGET"
       );
       return;
@@ -127,8 +158,7 @@ export default function BankDashboard() {
     setAccounts(updatedAccounts);
     setTransactions([newTransaction, ...transactions]);
     setSystemMessage({ text: "✅ Transfer işlemi siber güvenlik onayından geçti ve başarıyla tamamlandı!", type: "success" });
-    
-    // Başarılı log kaydı düşür
+
     triggerSecurityLog("WARNING", `Başarılı Transfer: ${amount} ₺ -> ${targetAccount.accountHolder}'a gönderildi.`, "TX_SUCCESS");
 
     setReceiverIban("");
@@ -138,7 +168,7 @@ export default function BankDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
-      
+
       {/* KURUMSAL SİBER NAVBAR */}
       <nav className="bg-slate-900 px-8 py-4 flex justify-between items-center shadow-lg border-b border-slate-800">
         <div className="flex items-center gap-3">
@@ -154,15 +184,15 @@ export default function BankDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* SOL TARAF: KULLANICI ARAYÜZÜ (3 SÜTUN) */}
+
+        {/* SOL TARAF: KULLANICI ARAYÜZÜ */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          
+
           {/* BAKİYE KARTI */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 border border-slate-700 shadow-xl">
             <p className="text-slate-400 text-xs font-medium">Aktif Operatör / Müşteri</p>
             <h1 className="text-xl font-bold text-emerald-400">{myAccount.accountHolder}</h1>
-            
+
             <div className="mt-6 flex justify-between items-end">
               <div>
                 <p className="text-xxs uppercase tracking-widest text-slate-400">Hesap No / IBAN</p>
@@ -186,9 +216,8 @@ export default function BankDashboard() {
 
           {/* SİSTEM BİLDİRİMİ */}
           {systemMessage.type && (
-            <div className={`p-3 rounded-xl text-xs font-semibold border ${
-              systemMessage.type === "success" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800" : "bg-red-950/50 text-red-300 border-red-900"
-            }`}>
+            <div className={`p-3 rounded-xl text-xs font-semibold border ${systemMessage.type === "success" ? "bg-emerald-950/50 text-emerald-300 border-emerald-800" : "bg-red-950/50 text-red-300 border-red-900"
+              }`}>
               {systemMessage.text}
             </div>
           )}
@@ -201,15 +230,15 @@ export default function BankDashboard() {
             <form onSubmit={handleTransfer} className="flex flex-col gap-3.5">
               <div>
                 <label className="block text-xxs font-bold uppercase text-slate-400 mb-1">Alıcı IBAN</label>
-                <input type="text" value={receiverIban} onChange={(e) => setReceiverIban(e.target.value)} placeholder="TR500060007000" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500 transition text-slate-200"/>
+                <input type="text" value={receiverIban} onChange={(e) => setReceiverIban(e.target.value)} placeholder="TR500060007000" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500 transition text-slate-200" />
               </div>
               <div>
                 <label className="block text-xxs font-bold uppercase text-slate-400 mb-1">Tutar (₺)</label>
-                <input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="0.00" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500 transition text-slate-200"/>
+                <input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="0.00" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500 transition text-slate-200" />
               </div>
               <div>
                 <label className="block text-xxs font-bold uppercase text-slate-400 mb-1">Açıklama</label>
-                <input type="text" value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} placeholder="Ödeme gerekçesi" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 transition text-slate-200"/>
+                <input type="text" value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} placeholder="Ödeme gerekçesi" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 transition text-slate-200" />
               </div>
               <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-2.5 px-4 rounded-xl shadow transition text-xs uppercase tracking-wider">
                 🔒 İşlemi Güvenlik Sırasına Gönder
@@ -218,7 +247,7 @@ export default function BankDashboard() {
           </div>
         </div>
 
-        {/* SAĞ TARAF: GİZLİ SİBER GÜVENLİK ALARM PANELİ (SOC MONITOR) (2 SÜTUN) */}
+        {/* SAĞ TARAF: GİZLİ SİBER GÜVENLİK ALARM PANELİ (SOC MONITOR) */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl h-full flex flex-col">
             <div className="border-b border-slate-800 pb-3 mb-4 flex justify-between items-center">
@@ -236,15 +265,13 @@ export default function BankDashboard() {
             {/* ALARM LOG LİSTESİ */}
             <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[420px] pr-1 font-mono">
               {securityLogs.map((log) => (
-                <div key={log.id} className={`p-3 rounded-xl border text-xxs flex flex-col gap-1.5 transition-all ${
-                  log.severity === "CRITICAL" 
-                    ? "bg-red-950/20 border-red-900/60 text-red-300" 
-                    : "bg-amber-950/10 border-amber-900/40 text-amber-300"
-                }`}>
+                <div key={log.id} className={`p-3 rounded-xl border text-xxs flex flex-col gap-1.5 transition-all ${log.severity === "CRITICAL"
+                  ? "bg-red-950/20 border-red-900/60 text-red-300"
+                  : "bg-amber-950/10 border-amber-900/40 text-amber-300"
+                  }`}>
                   <div className="flex justify-between items-center font-bold">
-                    <span className={`px-2 py-0.5 rounded text-white ${
-                      log.severity === "CRITICAL" ? "bg-red-700 animate-pulse" : "bg-amber-600"
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded text-white ${log.severity === "CRITICAL" ? "bg-red-700 animate-pulse" : "bg-amber-600"
+                      }`}>
                       [{log.severity}]
                     </span>
                     <span className="text-slate-500 font-sans">{log.timestamp}</span>
