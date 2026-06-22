@@ -96,12 +96,23 @@ export default function BankDashboard() {
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ─── 🛡️ SİBER KATMAN 1: RATE LIMITING (ANTI-FLOOD & BOT PROTECTION) ───
-    const currentTime = Date.now();
-    const timePassed = currentTime - lastRequestTime;
+    // ─── 🛡️ SİBER KATMAN 1: STATE BATCHING BAYPASLI RATE LIMITING ───
+    let isFlooding = false;
+    let timePassed = 0;
 
-    // Eğer iki tıklama arasında 3000 milisaniye (3 saniye) geçmediyse engelle!
-    if (timePassed < 3000) {
+    setLastRequestTime((prevTime) => {
+      const currentTime = Date.now();
+      timePassed = currentTime - prevTime;
+
+      if (prevTime !== 0 && timePassed < 3000) {
+        isFlooding = true;
+        return prevTime; // Zamanı güncelleme, eski zaman kalsın
+      }
+      return currentTime; // Güvenli istekse zamanı güncelle
+    });
+
+    // Eğer flood tespit edildiyse anında bloke et ve log fırlat!
+    if (isFlooding) {
       setSystemMessage({
         text: "🚨 Güvenlik Protokolü: Çok hızlı işlem isteği! Lütfen 3 saniye bekleyin.",
         type: "error"
@@ -114,10 +125,8 @@ export default function BankDashboard() {
       );
       return;
     }
-    // Son işlem zamanını güncelle
-    setLastRequestTime(currentTime);
 
-    // 1. Alanların eksiksiz doldurulup doldurulmadığını denetle
+    // ─── 1. Alanların eksiksiz doldurulup doldurulmadığını denetle ───
     if (!receiverIban || !transferAmount || !transferDesc) {
       setSystemMessage({ text: "⚠️ Lütfen tüm alanları eksiksiz doldurun.", type: "error" });
       return;
