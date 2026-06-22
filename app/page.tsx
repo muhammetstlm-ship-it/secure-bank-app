@@ -39,6 +39,9 @@ export default function BankDashboard() {
     type: null
   });
 
+  // 🛡️ RATE LIMIT KORUMASI: Son başarılı/başarısız işlem zamanını tutan hafıza hücresi
+  const [lastRequestTime, setLastRequestTime] = useState<number>(0);
+
   const myAccount = accounts[0];
 
   // 🎯 SOC MONITOR GÖRSEL ZIRH: En son loga odaklanacak çapa referansı
@@ -59,7 +62,7 @@ export default function BankDashboard() {
     if (lokalIslemler) setTransactions(JSON.parse(lokalIslemler));
   }, []);
 
-  // AŞAMA 2: Siber loglar her güncellendiğinde hafızaya anında kilitle (Delil Karartma Koruması)
+  // AŞAMA 2: Siber loglar her güncellendiğinde hafızaya anında kilitle
   useEffect(() => {
     localStorage.setItem("secure_bank_logs", JSON.stringify(securityLogs));
   }, [securityLogs]);
@@ -69,10 +72,6 @@ export default function BankDashboard() {
     localStorage.setItem("secure_bank_accounts", JSON.stringify(accounts));
     localStorage.setItem("secure_bank_transactions", JSON.stringify(transactions));
   }, [accounts, transactions]);
-
-  // ==========================================
-  // 🛡️ UI/UX CANLI LOG TAKİP MOTORU (AUTO-SCROLL)
-  // ==========================================
 
   // AŞAMA 4: Her yeni siber log eklendiğinde listeyi otomatik olarak en aşağı kaydır
   useEffect(() => {
@@ -97,9 +96,48 @@ export default function BankDashboard() {
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ─── 🛡️ SİBER KATMAN 1: RATE LIMITING (ANTI-FLOOD & BOT PROTECTION) ───
+    const currentTime = Date.now();
+    const timePassed = currentTime - lastRequestTime;
+
+    // Eğer iki tıklama arasında 3000 milisaniye (3 saniye) geçmediyse engelle!
+    if (timePassed < 3000) {
+      setSystemMessage({
+        text: "🚨 Güvenlik Protokolü: Çok hızlı işlem isteği! Lütfen 3 saniye bekleyin.",
+        type: "error"
+      });
+
+      triggerSecurityLog(
+        "CRITICAL",
+        `Brute-Force / API Flooding denemesi engellendi! İstek aralığı: ${timePassed}ms`,
+        "RATE_LIMIT_EXCEEDED"
+      );
+      return;
+    }
+    // Son işlem zamanını güncelle
+    setLastRequestTime(currentTime);
+
     // 1. Alanların eksiksiz doldurulup doldurulmadığını denetle
     if (!receiverIban || !transferAmount || !transferDesc) {
       setSystemMessage({ text: "⚠️ Lütfen tüm alanları eksiksiz doldurun.", type: "error" });
+      return;
+    }
+
+    // ─── 🛡️ SİBER KATMAN 2: XSS (CROSS-SITE SCRIPTING) SANITIZATION & DETECTION ───
+    // Zararlı HTML, Script veya script tetikleyicilerini regex ile tarıyoruz
+    const xssPattern = /<script\b[^>]*>([\s\S]*?)<\/script>|[\w\s]*\s*=\s*['"][^'"]*javascript:[^'"]*['"]|\b(onload|onerror|onclick|onmouseover)\b\s*=/gi;
+
+    if (xssPattern.test(transferDesc) || xssPattern.test(receiverIban)) {
+      setSystemMessage({
+        text: "❌ Güvenlik Tehdidi: Girdilerde zararlı betik kodları tespit edildi! İşlem bloke edildi.",
+        type: "error"
+      });
+
+      triggerSecurityLog(
+        "CRITICAL",
+        `XSS (Cross-Site Scripting) Enjeksiyon Atak Denemesi Bloke Edildi!`,
+        "XSS_INJECTION_ATTACK"
+      );
       return;
     }
 
@@ -181,7 +219,7 @@ export default function BankDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
 
-      {/* KURUMSUR SİBER NAVBAR */}
+      {/* KURUMSAL SİBER NAVBAR */}
       <nav className="bg-slate-900 px-8 py-4 flex justify-between items-center shadow-lg border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="bg-emerald-500 p-2 rounded-lg text-slate-900 font-bold text-xl tracking-wider">SOC</div>
