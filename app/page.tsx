@@ -42,6 +42,9 @@ export default function BankDashboard() {
   // 🛡️ RATE LIMIT KORUMASI: Son başarılı/başarısız işlem zamanını tutan hafıza hücresi
   const [lastRequestTime, setLastRequestTime] = useState<number>(0);
 
+  // 🔒 SENİN VİZYONUN: Butonun tıklanabilirliğini kilitleyen yeni durum (State)
+  const [isButtonDisabled, setIsButtonDisabled] = useState<boolean>(false);
+
   const myAccount = accounts[0];
 
   // 🎯 SOC MONITOR GÖRSEL ZIRH: En son loga odaklanacak çapa referansı
@@ -51,7 +54,6 @@ export default function BankDashboard() {
   // 🛡️ ADLİ BİLİŞİM (FORENSICS) KALICILIK MOTORU
   // ==========================================
 
-  // AŞAMA 1: Sayfa ilk yüklendiğinde tarayıcı hafızasındaki (localStorage) eski verileri çek
   useEffect(() => {
     const lokalLoglar = localStorage.getItem("secure_bank_logs");
     const lokalHesaplar = localStorage.getItem("secure_bank_accounts");
@@ -62,25 +64,22 @@ export default function BankDashboard() {
     if (lokalIslemler) setTransactions(JSON.parse(lokalIslemler));
   }, []);
 
-  // AŞAMA 2: Siber loglar her güncellendiğinde hafızaya anında kilitle
   useEffect(() => {
     localStorage.setItem("secure_bank_logs", JSON.stringify(securityLogs));
   }, [securityLogs]);
 
-  // AŞAMA 3: Hesap bakiyeleri veya işlemler her değiştiğinde hafızayı güncelle
   useEffect(() => {
     localStorage.setItem("secure_bank_accounts", JSON.stringify(accounts));
     localStorage.setItem("secure_bank_transactions", JSON.stringify(transactions));
   }, [accounts, transactions]);
 
-  // AŞAMA 4: Her yeni siber log eklendiğinde listeyi otomatik olarak en aşağı kaydır
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [securityLogs]);
 
   // ==========================================
 
-  // 🚨 Siber Güvenlik Log Fırlatıcı (Helper Function)
+  // 🚨 Siber Güvenlik Log Fırlatıcı
   const triggerSecurityLog = (severity: "CRITICAL" | "WARNING", message: string, errorCode: string) => {
     const newLog: SecurityLog = {
       id: `SEC-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -106,12 +105,12 @@ export default function BankDashboard() {
 
       if (prevTime !== 0 && timePassed < 3000) {
         isFlooding = true;
-        return prevTime; // Zamanı güncelleme, eski zaman kalsın
+        return prevTime;
       }
-      return currentTime; // Güvenli istekse zamanı güncelle
+      return currentTime;
     });
 
-    // Eğer flood tespit edildiyse anında bloke et ve log fırlat!
+    // Eğer flood tespit edildiyse anında bloke et, log fırlat ve butonu kilitle!
     if (isFlooding) {
       setSystemMessage({
         text: "🚨 Güvenlik Protokolü: Çok hızlı işlem isteği! Lütfen 3 saniye bekleyin.",
@@ -123,17 +122,23 @@ export default function BankDashboard() {
         `Brute-Force / API Flooding denemesi engellendi! İstek aralığı: ${timePassed}ms`,
         "RATE_LIMIT_EXCEEDED"
       );
+
+      // 🔥 Butonu kilitle ve 3 saniye (3000 ms) sonra geri aç
+      setIsButtonDisabled(true);
+      setTimeout(() => {
+        setIsButtonDisabled(false);
+      }, 3000);
+
       return;
     }
 
-    // ─── 1. Alanların eksiksiz doldurulup doldurulmadığını denetle ───
+    // 1. Alanların eksiksiz doldurulup doldurulmadığını denetle
     if (!receiverIban || !transferAmount || !transferDesc) {
       setSystemMessage({ text: "⚠️ Lütfen tüm alanları eksiksiz doldurun.", type: "error" });
       return;
     }
 
-    // ─── 🛡️ SİBER KATMAN 2: XSS (CROSS-SITE SCRIPTING) SANITIZATION & DETECTION ───
-    // Zararlı HTML, Script veya script tetikleyicilerini regex ile tarıyoruz
+    // ─── 🛡️ SİBER KATMAN 2: XSS FILTRESI ───
     const xssPattern = /<script\b[^>]*>([\s\S]*?)<\/script>|[\w\s]*\s*=\s*['"][^'"]*javascript:[^'"]*['"]|\b(onload|onerror|onclick|onmouseover)\b\s*=/gi;
 
     if (xssPattern.test(transferDesc) || xssPattern.test(receiverIban)) {
@@ -150,10 +155,9 @@ export default function BankDashboard() {
       return;
     }
 
-    // 2. GÜVENLİ TİP DÖNÜŞÜMÜ (TypeScript Sıkılaştırması)
     const amount = Number(transferAmount);
 
-    // 🔴 KRİTİK ATAK KORUMASI: Negatif, Sıfır, Boş veya Sayı Olmayan (NaN) Giriş Engeli
+    // 🔴 KRİTİK ATAK KORUMASI
     if (!transferAmount || amount <= 0 || isNaN(amount)) {
       setSystemMessage({ text: "❌ Geçersiz miktar! Güvenlik protokolü uyarınca işlem reddedildi.", type: "error" });
 
@@ -216,7 +220,7 @@ export default function BankDashboard() {
 
     setAccounts(updatedAccounts);
     setTransactions([newTransaction, ...transactions]);
-    setSystemMessage({ text: "✅ Transfer işlemi siber güvenlik onayından geçti ve başarıyla tamamlandı!", type: "success" });
+    setSystemMessage({ text: "✅ Transfer işlemi siberDoc onayından geçti ve başarıyla tamamlandı!", type: "success" });
 
     triggerSecurityLog("WARNING", `Başarılı Transfer: ${amount} ₺ -> ${targetAccount.accountHolder}'a gönderildi.`, "TX_SUCCESS");
 
@@ -299,20 +303,29 @@ export default function BankDashboard() {
                 <label className="block text-xxs font-bold uppercase text-slate-400 mb-1">Açıklama</label>
                 <input type="text" value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} placeholder="Ödeme gerekçesi" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-500 transition text-slate-200" />
               </div>
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-2.5 px-4 rounded-xl shadow transition text-xs uppercase tracking-wider">
-                🔒 İşlemi Güvenlik Sırasına Gönder
+
+              {/* 🔥 GÜNCELLENEN AKILLI SİBER BUTON */}
+              <button
+                type="submit"
+                disabled={isButtonDisabled}
+                className={`w-full font-bold py-2.5 px-4 rounded-xl shadow transition text-xs uppercase tracking-wider ${isButtonDisabled
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
+                    : "bg-emerald-600 hover:bg-emerald-500 text-slate-950"
+                  }`}
+              >
+                {isButtonDisabled ? "🔒 Sistem Kilitlendi (Bekleyin...)" : "🔒 İşlemi Güvenlik Sırasına Gönder"}
               </button>
             </form>
           </div>
         </div>
 
-        {/* SAĞ TARAF: GİZLİ SİBER GÜVENLİK ALARM PANELİ (SOC MONITOR) */}
+        {/* SAĞ RATAF: SOC MONITOR */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl h-full flex flex-col">
             <div className="border-b border-slate-800 pb-3 mb-4 flex justify-between items-center">
               <div>
                 <h2 className="text-sm font-bold text-red-400 flex items-center gap-2 uppercase tracking-widest">
-                  🛡️ SOC Real-Time Incident Monitor
+                  🛡️ SOC Gerçek Zamanlı Olay İzleme Sistemi
                 </h2>
                 <p className="text-xxs text-slate-500 font-medium mt-0.5">Siber Tehdit ve Güvenlik İhlal Kayıtları (SIEM)</p>
               </div>
@@ -321,7 +334,6 @@ export default function BankDashboard() {
               </span>
             </div>
 
-            {/* ALARM LOG LİSTESİ */}
             <div className="flex flex-col gap-2.5 overflow-y-auto max-h-[420px] pr-1 font-mono">
               {securityLogs.map((log) => (
                 <div key={log.id} className={`p-3 rounded-xl border text-xxs flex flex-col gap-1.5 transition-all ${log.severity === "CRITICAL"
@@ -342,8 +354,6 @@ export default function BankDashboard() {
                   </div>
                 </div>
               ))}
-
-              {/* 🎯 GÖRÜNMEZ ÇAPA: Yeni log geldiğinde ekran otomatik olarak buraya kayacak */}
               <div ref={logEndRef} />
             </div>
           </div>
